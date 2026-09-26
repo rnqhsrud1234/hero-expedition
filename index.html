@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="screen-orientation" content="landscape">
 <meta name="theme-color" content="#0a1118">
-<meta name="hero-expedition-build" content="2.0.0-renewal-phaser-mobile-hotfix1">
-<title>영웅원정기 2.0.0 · Renewal Phaser · Mobile Hotfix 1</title>
+<meta name="hero-expedition-build" content="2.0.0-renewal-phaser-mobile-hotfix2">
+<title>영웅원정기 2.0.0 · Renewal Phaser · Mobile Hotfix 2</title>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0a1118;color:#dceeff;font-family:Arial,"Noto Sans KR",sans-serif}
 #boot2{position:fixed;inset:0;z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;background:#0a1118}
@@ -55,56 +55,70 @@ function patchSource(src){
     }
 
     drawFloor(s) {`);
-  src=src.replace("v.textContent='1.6.0 PHASER · 1.4.4 RULES';","v.textContent='2.0.0 · RENEWAL PHASER · MOBILE FIX';");
+  src=src.replace("v.textContent='1.6.0 PHASER · 1.4.4 RULES';","v.textContent='2.0.0 · RENEWAL PHASER · MOBILE FIX 2';");
 
-  // Mobile landscape hotfix: do not stretch a stale portrait-sized Phaser canvas.
-  src=src.replace(
-    '#phaser-root canvas{display:block;width:100%!important;height:100%!important;touch-action:none}',
-    '#phaser-root canvas{display:block;touch-action:none}'
-  );
-
-  const mobileViewportFix = `<script id="he-mobile-viewport-hotfix">
+  // Mobile landscape hotfix 2:
+  // Keep CSS full-screen sizing untouched. Only sync Phaser's internal render size
+  // to the actual #phaser-root box after Android orientation/fullscreen changes.
+  const mobileViewportFix = `<script id="he-mobile-viewport-hotfix2">
   (()=>{
     'use strict';
     let lastW=0,lastH=0;
-    function size(){
-      const vv=window.visualViewport;
-      let w=Math.round((vv&&vv.width)||window.innerWidth||document.documentElement.clientWidth||0);
-      let h=Math.round((vv&&vv.height)||window.innerHeight||document.documentElement.clientHeight||0);
-      const angle=Math.abs(Number(screen.orientation?.angle||window.orientation||0))%180;
-      const wantsLandscape=(window.matchMedia&&window.matchMedia('(orientation: landscape)').matches)||angle===90;
-      if(wantsLandscape&&h>w){const t=w;w=h;h=t;}
-      return {w:Math.max(320,w),h:Math.max(220,h)};
-    }
     function sync(){
-      const game=window.__PHASER_GAME__;
-      if(!game||!game.scale)return false;
-      const d=size(),w=d.w,h=d.h;
-      if(!w||!h)return false;
+      const game=window.__PHASER_GAME__||window.HeroExpeditionPhaserRuntime?.game;
       const root=document.getElementById('phaser-root');
-      if(root){root.style.width=w+'px';root.style.height=h+'px';root.style.left='0';root.style.top='0';}
-      if(lastW!==w||lastH!==h){
-        try{game.scale.resize(w,h);}catch(_){ }
-        try{game.renderer?.resize?.(w,h);}catch(_){ }
-        lastW=w;lastH=h;
-      }
+      if(!game?.scale||!root)return false;
+
+      // Remove any stale inline sizing left by the previous hotfix.
+      root.style.width='';
+      root.style.height='';
+      root.style.left='';
+      root.style.top='';
+      root.style.right='';
+      root.style.bottom='';
+
       const canvas=game.canvas;
       if(canvas){
-        canvas.style.width=w+'px';canvas.style.height=h+'px';
-        canvas.style.maxWidth='none';canvas.style.maxHeight='none';
+        canvas.style.width='100%';
+        canvas.style.height='100%';
+        canvas.style.maxWidth='';
+        canvas.style.maxHeight='';
         canvas.style.display='block';
+        canvas.style.margin='0';
+        canvas.style.position='';
+        canvas.style.left='';
+        canvas.style.top='';
       }
-      try{game.scene?.getScene?.('ExpeditionHudScene')?.layout?.();}catch(_){ }
+
+      const rect=root.getBoundingClientRect();
+      const w=Math.max(320,Math.round(rect.width));
+      const h=Math.max(220,Math.round(rect.height));
+      if(!w||!h)return false;
+
+      if(Math.abs((game.scale.width||0)-w)>1||Math.abs((game.scale.height||0)-h)>1||lastW!==w||lastH!==h){
+        try{game.scale.resize(w,h);}catch(e){console.warn('[Renewal scale resize]',e);}
+        lastW=w;lastH=h;
+      }
+      try{game.scene?.getScene?.('ExpeditionHudScene')?.layout?.();}catch(_){}
       return true;
     }
-    function burst(){[0,40,120,260,500,900,1400].forEach(ms=>setTimeout(sync,ms));}
+
+    function burst(){
+      [0,80,180,350,650,1000,1500].forEach(ms=>setTimeout(sync,ms));
+    }
+
     addEventListener('resize',burst,{passive:true});
     addEventListener('orientationchange',burst,{passive:true});
-    addEventListener('pointerdown',()=>setTimeout(burst,0),{passive:true});
     document.addEventListener('fullscreenchange',burst);
     document.addEventListener('webkitfullscreenchange',burst);
     if(window.visualViewport)window.visualViewport.addEventListener('resize',burst,{passive:true});
-    let tries=0;const wait=setInterval(()=>{tries++;if(sync()){clearInterval(wait);burst();}else if(tries>60)clearInterval(wait);},100);
+
+    let tries=0;
+    const wait=setInterval(()=>{
+      tries++;
+      if(sync()&&tries>6){clearInterval(wait);burst();}
+      else if(tries>80)clearInterval(wait);
+    },100);
     setTimeout(burst,50);
   })();
   <\/script>`;
