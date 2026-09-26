@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="screen-orientation" content="landscape">
 <meta name="theme-color" content="#0a1118">
-<meta name="hero-expedition-build" content="2.0.0-renewal-phaser-mobile-hotfix2">
-<title>영웅원정기 2.0.0 · Renewal Phaser · Mobile Hotfix 2</title>
+<meta name="hero-expedition-build" content="2.0.0-renewal-mobile-stable1">
+<title>영웅원정기 2.0.0 · Renewal Final · Mobile Stable</title>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0a1118;color:#dceeff;font-family:Arial,"Noto Sans KR",sans-serif}
 #boot2{position:fixed;inset:0;z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;background:#0a1118}
@@ -55,74 +55,61 @@ function patchSource(src){
     }
 
     drawFloor(s) {`);
-  src=src.replace("v.textContent='1.6.0 PHASER · 1.4.4 RULES';","v.textContent='2.0.0 · RENEWAL PHASER · MOBILE FIX 2';");
+  src=src.replace("v.textContent='1.6.0 PHASER · 1.4.4 RULES';","v.textContent='2.0.0 · RENEWAL FINAL · MOBILE STABLE';");
 
-  // Mobile landscape hotfix 2:
-  // Keep CSS full-screen sizing untouched. Only sync Phaser's internal render size
-  // to the actual #phaser-root box after Android orientation/fullscreen changes.
-  const mobileViewportFix = `<script id="he-mobile-viewport-hotfix2">
+  // Mobile stable renderer:
+  // Keep the 2.0.0 rules/content, but disable the unstable Phaser-native gameplay
+  // renderer on mobile/web and use the proven DPR-aware Canvas/RAF renderer.
+  src=src.replace(/<style\s+data-source=["']phaser-full-native\.css["']>[\s\S]*?<\/style>/ig,'');
+  src=src.replace(/<script\s+src=["']https:\/\/cdn\.jsdelivr\.net\/npm\/phaser@3\.90\.0\/dist\/phaser\.min\.js["'][^>]*><\/script>/ig,'');
+  src=src.replace(/<script\s+src=["']https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/phaser\/3\.90\.0\/phaser\.min\.js["'][^>]*><\/script>/ig,'');
+  src=src.replace(/<script\s+data-source=["']src\/phaser\/native-core\.js["']>[\s\S]*?<\/script>/ig,'');
+  src=src.replace(/<script\s+data-source=["']src\/phaser\/native-renderer\.js["']>[\s\S]*?<\/script>/ig,'');
+  src=src.replace(/<script\s+data-source=["']src\/phaser\/runtime\.js["']>[\s\S]*?<\/script>/ig,'');
+  src=src.replace(/<script\s+data-source=["']src\/phaser\/migration-map\.js["']>[\s\S]*?<\/script>/ig,'');
+  src=src.replace(/<script[^>]+src=["'][^"']*\/src\/phaser\/native-core\.js[^"']*["'][^>]*><\/script>/ig,'');
+  src=src.replace(/<script[^>]+src=["'][^"']*\/src\/phaser\/native-renderer\.js[^"']*["'][^>]*><\/script>/ig,'');
+  src=src.replace(/<script[^>]+src=["'][^"']*\/src\/phaser\/runtime\.js[^"']*["'][^>]*><\/script>/ig,'');
+  src=src.replace(/<script[^>]+src=["'][^"']*\/src\/phaser\/migration-map\.js[^"']*["'][^>]*><\/script>/ig,'');
+
+  const stableRendererStyle = `<style id="renewal-stable-renderer">
+    #phaser-root{display:none!important}
+    #game{display:block!important;visibility:visible!important;opacity:1!important;position:fixed!important;inset:0!important;width:100%!important;height:100%!important}
+    #minimap,#hud{display:block!important;visibility:visible!important;opacity:1!important}
+    body{overflow:hidden!important}
+  <\/style>`;
+  src=src.replace('</head>',stableRendererStyle+'</head>');
+
+  // Remove any stale native-only body class if one somehow survives.
+  src=src.replace(
+    "document.body.classList.add('phaser-native-full');",
+    "document.body.classList.remove('phaser-native-full');"
+  );
+
+  // Make the fallback boot explicit and immediate if Phaser-native code was stripped.
+  src=src.replace(
+    "console.warn('[Hero Expedition] Phaser unavailable; using RAF fallback.');",
+    "console.info('[Hero Expedition] Stable mobile Canvas renderer active.');"
+  );
+
+  // Preserve sharp DPR rendering, but avoid CSS pixelation hints on the main game canvas.
+  src=src.replace(
+    "image-rendering:pixelated;background:#101720",
+    "image-rendering:auto;background:#101720"
+  );
+
+  // Refresh the legacy Canvas size a few times after Android fullscreen/orientation settles.
+  const stableResizeFix = `<script id="renewal-stable-resize">
   (()=>{
-    'use strict';
-    let lastW=0,lastH=0;
-    function sync(){
-      const game=window.__PHASER_GAME__||window.HeroExpeditionPhaserRuntime?.game;
-      const root=document.getElementById('phaser-root');
-      if(!game?.scale||!root)return false;
-
-      // Remove any stale inline sizing left by the previous hotfix.
-      root.style.width='';
-      root.style.height='';
-      root.style.left='';
-      root.style.top='';
-      root.style.right='';
-      root.style.bottom='';
-
-      const canvas=game.canvas;
-      if(canvas){
-        canvas.style.width='100%';
-        canvas.style.height='100%';
-        canvas.style.maxWidth='';
-        canvas.style.maxHeight='';
-        canvas.style.display='block';
-        canvas.style.margin='0';
-        canvas.style.position='';
-        canvas.style.left='';
-        canvas.style.top='';
-      }
-
-      const rect=root.getBoundingClientRect();
-      const w=Math.max(320,Math.round(rect.width));
-      const h=Math.max(220,Math.round(rect.height));
-      if(!w||!h)return false;
-
-      if(Math.abs((game.scale.width||0)-w)>1||Math.abs((game.scale.height||0)-h)>1||lastW!==w||lastH!==h){
-        try{game.scale.resize(w,h);}catch(e){console.warn('[Renewal scale resize]',e);}
-        lastW=w;lastH=h;
-      }
-      try{game.scene?.getScene?.('ExpeditionHudScene')?.layout?.();}catch(_){}
-      return true;
-    }
-
-    function burst(){
-      [0,80,180,350,650,1000,1500].forEach(ms=>setTimeout(sync,ms));
-    }
-
-    addEventListener('resize',burst,{passive:true});
-    addEventListener('orientationchange',burst,{passive:true});
-    document.addEventListener('fullscreenchange',burst);
-    document.addEventListener('webkitfullscreenchange',burst);
-    if(window.visualViewport)window.visualViewport.addEventListener('resize',burst,{passive:true});
-
-    let tries=0;
-    const wait=setInterval(()=>{
-      tries++;
-      if(sync()&&tries>6){clearInterval(wait);burst();}
-      else if(tries>80)clearInterval(wait);
-    },100);
-    setTimeout(burst,50);
+    const kick=()=>{try{window.dispatchEvent(new Event('resize'));}catch(_){}};
+    addEventListener('orientationchange',()=>{[100,300,700,1200].forEach(ms=>setTimeout(kick,ms));},{passive:true});
+    document.addEventListener('fullscreenchange',()=>{[80,250,600].forEach(ms=>setTimeout(kick,ms));});
+    document.addEventListener('webkitfullscreenchange',()=>{[80,250,600].forEach(ms=>setTimeout(kick,ms));});
+    addEventListener('load',()=>{[80,300,800].forEach(ms=>setTimeout(kick,ms));},{once:true});
   })();
   <\/script>`;
-  src=src.replace('</body>',mobileViewportFix+'</body>');
+  src=src.replace('</body>',stableResizeFix+'</body>');
+
   return src;
 }
 async function boot(){
