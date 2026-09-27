@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'Hero-Expedition-Phaser-2.0.0-alpha.1-WEB.zip.part-*'
+      - 'Hero-Expedition-Phaser-2.0.0-alpha.2-WEB.zip.part-*'
   workflow_dispatch:
 
 permissions:
@@ -25,7 +25,7 @@ jobs:
         run: |
           set -e
 
-          PART_PREFIX="Hero-Expedition-Phaser-2.0.0-alpha.1-WEB.zip.part-"
+          PART_PREFIX="Hero-Expedition-Phaser-2.0.0-alpha.2-WEB.zip.part-"
 
           cat ${PART_PREFIX}* > /tmp/hero-web.zip
 
@@ -36,7 +36,7 @@ jobs:
           find . -mindepth 1 -maxdepth 1 \
             ! -name '.git' \
             ! -name '.github' \
-            ! -name 'Hero-Expedition-Phaser-2.0.0-alpha.1-WEB.zip.part-*' \
+            ! -name 'Hero-Expedition-Phaser-2.0.0-alpha.2-WEB.zip.part-*' \
             -exec rm -rf {} +
 
           cp -a /tmp/hero-web/. .
@@ -53,5 +53,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add -A
-          git commit -m "Deploy Phaser 2.0.0 alpha.1 WEB"
+          git commit -m "Deploy Phaser 2.0.0 alpha.2 WEB"
           git push origin main
